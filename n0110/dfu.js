@@ -567,7 +567,7 @@ var dfu = {};
 
     dfu.Device.prototype.do_download = async function(xfer_size, data, manifestationTolerant, isReboot=false) {
         let bytes_sent = 0;
-        let expected_size = data.length;
+        let expected_size = data.byteLength;
         let transaction = 0;
 
         if (!isReboot) {
