@@ -24,7 +24,6 @@
     </style>
   </head>
   <body>
-    <a href="https://github.com/TI-Planet/webdfu_numworks"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png"></a>
     <p>
       <span id="status"></span>
     </p>
@@ -63,7 +62,7 @@
           <input type="number" name="dfuseUploadSize" id="dfuseUploadSize" min="1"/>
         </div>
 
-        <legend style="display: none;">DFU mode</legend>
+       <legend style="display: none;">DFU mode</legend>
         <fieldset>
           <legend>Flash firmware onto device</legend>
           <p>External memory, if available, should be flashed first.</p>
@@ -71,20 +70,26 @@
             <input type="file" id="firmwareFile" name="file" disabled="true"/>
           </p>
           <p>
-            <button id="download_external" disabled="true">Flash external</button>
-            <button id="download_internal" disabled="true">Flash internal</button>
-            <button id="download_slota" disabled="true">Flash Slot A</button>
-            <button id="download_slotb" disabled="true">Flash Slot B</button>
+              <label style="display:none" for="download_address">Flash Address:</label>
+              <input style="display:none" id="download_address" type="text" placeholder="0x9000000" disabled="true">
+              <button id="download_external" disabled="true">Flash external<br />(0x90000000)</button>
+              <button id="download_internal" disabled="true">Flash internal<br />(0x08000000)</button>
+              <button id="download_slota" disabled="true">Flash Slot A<br />(0x90000000)</button>
+              <button id="download_slotb" disabled="true">Flash Slot B<br />(0x90400000)</button><br />
+              <button id="download_slota_user" disabled="true">Flash Slot A Userland<br />(0x90010000)</button>
+              <button id="boot_slota_user" disabled="true">Boot Slot A Userland<br />(0x90010000)</button><br />
+              <button id="download_slotb_user" disabled="true">Flash Slot B Userland<br />(0x90410000)</button>
+              <button id="boot_slotb_user" disabled="true">Boot Slot B Userland<br />(0x90410000)</button>
           </p>
           <div class="log" id="downloadLog"></div>
         </fieldset>
         <fieldset>
           <legend>Dump flash from device</legend>
           <p>
-            <button id="upload_internal" disabled="true">Dump internal</button>
-            <button id="upload_external" disabled="true">Dump external</button>
-            <button id="upload_slota" disabled="true">Dump Slot A</button>
-            <button id="upload_slotb" disabled="true">Dump Slot B</button>
+              <button id="upload_internal" disabled="true">Dump internal<br />(0x08000000)</button>
+              <button id="upload_external" disabled="true">Dump external<br />(0x90000000)</button>
+              <button id="upload_slota" disabled="true">Dump Slot A<br />(0x90000000)</button>
+              <button id="upload_slotb" disabled="true">Dump Slot B<br />(0x90400000)</button>
           </p>
           <div class="log" id="uploadLog"></div>
         </fieldset>

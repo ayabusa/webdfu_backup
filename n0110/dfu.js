@@ -565,50 +565,51 @@ var dfu = {};
         return this.poll_until(state => (state == idle_state));
     };
 
-    dfu.Device.prototype.do_download = async function(xfer_size, data, manifestationTolerant) {
+    dfu.Device.prototype.do_download = async function(xfer_size, data, manifestationTolerant, isReboot=false) {
         let bytes_sent = 0;
-        let expected_size = data.byteLength;
+        let expected_size = data.length;
         let transaction = 0;
 
-        this.logInfo("Copying data from browser to DFU device");
+        if (!isReboot) {
+            this.logInfo("Copying data from browser to DFU device");
 
-        // Initialize progress to 0
-        this.logProgress(bytes_sent, expected_size);
-
-        while (bytes_sent < expected_size) {
-            const bytes_left = expected_size - bytes_sent;
-            const chunk_size = Math.min(bytes_left, xfer_size);
-
-            let bytes_written = 0;
-            let dfu_status;
-            try {
-                bytes_written = await this.download(data.slice(bytes_sent, bytes_sent+chunk_size), transaction++);
-                this.logDebug("Sent " + bytes_written + " bytes");
-                dfu_status = await this.poll_until_idle(dfu.dfuDNLOAD_IDLE);
-            } catch (error) {
-                throw "Error during DFU download: " + error;
-            }
-
-            if (dfu_status.status != dfu.STATUS_OK) {
-                throw `DFU DOWNLOAD failed state=${dfu_status.state}, status=${dfu_status.status}`;
-            }
-
-            this.logDebug("Wrote " + bytes_written + " bytes");
-            bytes_sent += bytes_written;
-
+            // Initialize progress to 0
             this.logProgress(bytes_sent, expected_size);
+
+            while (bytes_sent < expected_size) {
+                const bytes_left = expected_size - bytes_sent;
+                const chunk_size = Math.min(bytes_left, xfer_size);
+
+                let bytes_written = 0;
+                let dfu_status;
+                try {
+                    bytes_written = await this.download(data.slice(bytes_sent, bytes_sent + chunk_size), transaction++);
+                    this.logDebug("Sent " + bytes_written + " bytes");
+                    dfu_status = await this.poll_until_idle(dfu.dfuDNLOAD_IDLE);
+                } catch (error) {
+                    throw "Error during DFU download: " + error;
+                }
+
+                if (dfu_status.status != dfu.STATUS_OK) {
+                    throw `DFU DOWNLOAD failed state=${dfu_status.state}, status=${dfu_status.status}`;
+                }
+
+                this.logDebug("Wrote " + bytes_written + " bytes");
+                bytes_sent += bytes_written;
+
+                this.logProgress(bytes_sent, expected_size);
+            }
+
+            this.logDebug("Sending empty block");
+            try {
+                await this.download(new ArrayBuffer([]), transaction++);
+            } catch (error) {
+                throw "Error during final DFU download: " + error;
+            }
+
+            this.logInfo("Wrote " + bytes_sent + " bytes");
+            this.logInfo("Manifesting new firmware");
         }
-
-        this.logDebug("Sending empty block");
-        try {
-            await this.download(new ArrayBuffer([]), transaction++);
-        } catch (error) {
-            throw "Error during final DFU download: " + error;
-        }
-
-        this.logInfo("Wrote " + bytes_sent + " bytes");
-        this.logInfo("Manifesting new firmware");
-
         if (manifestationTolerant) {
             // Transition to MANIFEST_SYNC state
             let dfu_status;

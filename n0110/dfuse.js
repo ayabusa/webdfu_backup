@@ -213,56 +213,55 @@ var dfuse = {};
         }
     };
 
-    dfuse.Device.prototype.do_download = async function(xfer_size, data, manifestationTolerant) {
+    dfuse.Device.prototype.do_download = async function (xfer_size, data, manifestationTolerant, isReboot=false) {
         if (!this.memoryInfo || ! this.memoryInfo.segments) {
             throw "No memory map available";
         }
-
-        this.logInfo("Erasing DFU device memory");
-
-        let bytes_sent = 0;
-        let expected_size = data.byteLength;
-
         let startAddress = this.startAddress;
-        if (isNaN(startAddress)) {
-            startAddress = this.memoryInfo.segments[0].start;
-            this.logWarning("Using inferred start address 0x" + startAddress.toString(16));
-        } else if (this.getSegment(startAddress) === null) {
-            this.logError(`Start address 0x${startAddress.toString(16)} outside of memory map bounds`);
-        }
-        await this.erase(startAddress, expected_size);
+        if (!isReboot) {
+            this.logInfo("Erasing DFU device memory");
 
-        this.logInfo("Copying data from browser to DFU device");
-
-        let address = startAddress;
-        while (bytes_sent < expected_size) {
-            const bytes_left = expected_size - bytes_sent;
-            const chunk_size = Math.min(bytes_left, xfer_size);
-
-            let bytes_written = 0;
-            let dfu_status;
-            try {
-                await this.dfuseCommand(dfuse.SET_ADDRESS, address, 4);
-                this.logDebug(`Set address to 0x${address.toString(16)}`);
-                bytes_written = await this.download(data.slice(bytes_sent, bytes_sent+chunk_size), 2);
-                this.logDebug("Sent " + bytes_written + " bytes");
-                dfu_status = await this.poll_until_idle(dfu.dfuDNLOAD_IDLE);
-                address += chunk_size;
-            } catch (error) {
-                throw "Error during DfuSe download: " + error;
+            let bytes_sent = 0;
+            let expected_size = data.byteLength;
+            if (isNaN(startAddress)) {
+                startAddress = this.memoryInfo.segments[0].start;
+                this.logWarning("Using inferred start address 0x" + startAddress.toString(16));
+            } else if (this.getSegment(startAddress) === null) {
+                this.logError(`Start address 0x${startAddress.toString(16)} outside of memory map bounds`);
             }
+            await this.erase(startAddress, expected_size);
 
-            if (dfu_status.status != dfu.STATUS_OK) {
-                throw `DFU DOWNLOAD failed state=${dfu_status.state}, status=${dfu_status.status}`;
+            this.logInfo("Copying data from browser to DFU device");
+
+            let address = startAddress;
+            while (bytes_sent < expected_size) {
+                const bytes_left = expected_size - bytes_sent;
+                const chunk_size = Math.min(bytes_left, xfer_size);
+
+                let bytes_written = 0;
+                let dfu_status;
+                try {
+                    await this.dfuseCommand(dfuse.SET_ADDRESS, address, 4);
+                    this.logDebug(`Set address to 0x${address.toString(16)}`);
+                    bytes_written = await this.download(data.slice(bytes_sent, bytes_sent + chunk_size), 2);
+                    this.logDebug("Sent " + bytes_written + " bytes");
+                    dfu_status = await this.poll_until_idle(dfu.dfuDNLOAD_IDLE);
+                    address += chunk_size;
+                } catch (error) {
+                    throw "Error during DfuSe download: " + error;
+                }
+
+                if (dfu_status.status != dfu.STATUS_OK) {
+                    throw `DFU DOWNLOAD failed state=${dfu_status.state}, status=${dfu_status.status}`;
+                }
+
+                this.logDebug("Wrote " + bytes_written + " bytes");
+                bytes_sent += bytes_written;
+
+                this.logProgress(bytes_sent, expected_size);
             }
-
-            this.logDebug("Wrote " + bytes_written + " bytes");
-            bytes_sent += bytes_written;
-
-            this.logProgress(bytes_sent, expected_size);
+            this.logInfo(`Wrote ${bytes_sent} bytes`);
         }
-        this.logInfo(`Wrote ${bytes_sent} bytes`);
-
         if(manifestationTolerant) {
           this.logInfo("Manifesting new firmware");
           try {

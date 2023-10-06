@@ -219,10 +219,15 @@ var device = null;
     document.addEventListener('DOMContentLoaded', event => {
         let connectButton = document.querySelector("#connect");
         let detachButton = document.querySelector("#detach");
+        let downloadFlashAddressInput = document.querySelector("#download_address");
         let downloadInternalButton = document.querySelector("#download_internal");
         let downloadExternalButton = document.querySelector("#download_external");
         let downloadSlotAButton = document.querySelector("#download_slota");
         let downloadSlotBButton = document.querySelector("#download_slotb");
+        let downloadSlotAUserlandButton = document.querySelector("#download_slota_user");
+        let downloadSlotBUserlandButton = document.querySelector("#download_slotb_user");
+        let bootSlotAUserlandButton = document.querySelector("#boot_slota_user");
+        let bootSlotBUserlandButton = document.querySelector("#boot_slotb_user");
         let uploadInternalButton = document.querySelector("#upload_internal");
         let uploadExternalButton = document.querySelector("#upload_external");
         let uploadSlotAButton = document.querySelector("#upload_slota");
@@ -292,7 +297,8 @@ var device = null;
 
         const isNumWorks = (vid === 0x0483 && pid === 0xA291);
         if (isNumWorks) {
-            doAutoConnect = true;
+            //disable AutoConnect until a proper fix is found
+            //doAutoConnect = true;
         }
         console.log(`isNumWorks = ${isNumWorks} (VID = ${vid}, PID = ${pid})`);
 
@@ -323,6 +329,7 @@ var device = null;
             infoDisplay.textContent = "";
             dfuDisplay.textContent = "";
             detachButton.disabled = true;
+            downloadFlashAddressInput.disabled = true;
             uploadInternalButton.disabled = true;
             uploadExternalButton.disabled = true;
             uploadSlotAButton.disabled = true;
@@ -331,6 +338,10 @@ var device = null;
             downloadExternalButton.disabled = true;
             downloadSlotAButton.disabled = true;
             downloadSlotBButton.disabled = true;
+            downloadSlotAUserlandButton.disabled = true;
+            downloadSlotBUserlandButton.disabled = true;
+            bootSlotAUserlandButton.disabled = true;
+            bootSlotBUserlandButton.disabled = true;
             firmwareFileField.disabled = true;
         }
 
@@ -383,8 +394,13 @@ var device = null;
                     if (!desc.CanDnload) {
                         downloadInternalButton.disabled = true;
                         downloadExternalButton.disabled = true;
+                        downloadFlashAddressInput.disabled = true;
                         downloadSlotAButton.disabled = true;
                         downloadSlotBButton.disabled = true;
+                        downloadSlotAUserlandButton.disabled = true;
+                        downloadSlotBUserlandButton.disabled = true;
+                        bootSlotAUserlandButton.disabled = true;
+                        bootSlotBUserlandButton.disabled = true;
                     }
                 }
 
@@ -451,8 +467,13 @@ var device = null;
                 uploadSlotBButton.disabled = true;
                 downloadInternalButton.disabled = true;
                 downloadExternalButton.disabled = true;
+                downloadFlashAddressInput.disabled = true;
                 downloadSlotAButton.disabled = true;
                 downloadSlotBButton.disabled = true;
+                downloadSlotAUserlandButton.disabled = true;
+                downloadSlotBUserlandButton.disabled = true;
+                bootSlotAUserlandButton.disabled = true;
+                bootSlotBUserlandButton.disabled = true;
                 firmwareFileField.disabled = true;
             } else {
                 // DFU
@@ -463,8 +484,13 @@ var device = null;
                 uploadSlotBButton.disabled = false;
                 downloadInternalButton.disabled = false;
                 downloadExternalButton.disabled = false;
+                downloadFlashAddressInput.disabled = false;
                 downloadSlotAButton.disabled = false;
                 downloadSlotBButton.disabled = false;
+                downloadSlotAUserlandButton.disabled = false;
+                downloadSlotBUserlandButton.disabled = false;
+                bootSlotAUserlandButton.disabled = false;
+                bootSlotBUserlandButton.disabled = false;
                 firmwareFileField.disabled = false;
             }
 
@@ -713,7 +739,7 @@ var device = null;
             }
         });
 
-        function downloadEventListener(downloadFunction) {
+        function downloadEventListener(downloadFunction, isReboot=false) {
           return async function(event) {
               event.preventDefault();
               event.stopPropagation();
@@ -755,7 +781,42 @@ var device = null;
                           setLogContext(null);
                       }
                   )
+              } else if (device && isReboot) {
+                  setLogContext(downloadLog);
+                  clearLog(downloadLog);
+                  try {
+                      let status = await device.getStatus();
+                      if (status.state == dfu.dfuERROR) {
+                          await device.clearStatus();
+                      }
+                  } catch (error) {
+                      device.logWarning("Failed to clear status");
+                  }
+                  await downloadFunction().then(
+                      () => {
+                          logInfo("Done!");
+                          setLogContext(null);
+                          if (!manifestationTolerant) {
+                              device.waitDisconnected(5000).then(
+                                  dev => {
+                                      onDisconnect();
+                                      device = null;
+                                  },
+                                  error => {
+                                      // It didn't reset and disconnect for some reason...
+                                      console.log("Device unexpectedly tolerated manifestation.");
+                                  });
+                          }
+                      },
+                      error => {
+                          logError(error);
+                          setLogContext(null);
+                      }
+                  )
               }
+                   
+
+                  
 
               //return false;
           }
@@ -780,6 +841,27 @@ var device = null;
           device.startAddress = 0x90400000;
           return device.do_download(transferSize, firmwareFile, false);
         }));
+
+        downloadSlotAUserlandButton.addEventListener('click', downloadEventListener(async function () {
+            device.startAddress = 0x90010000;
+            return device.do_download(transferSize, firmwareFile, true);
+        }));
+
+        downloadSlotBUserlandButton.addEventListener('click', downloadEventListener(async function () {
+            device.startAddress = 0x90410000;
+            return device.do_download(transferSize, firmwareFile, true);
+        }));
+
+
+        bootSlotAUserlandButton.addEventListener('click', downloadEventListener(async function () {
+            device.startAddress = 0x90010000;
+            return device.do_download(transferSize, firmwareFile, true, true);
+        }, true));
+
+        bootSlotBUserlandButton.addEventListener('click', downloadEventListener(async function () {
+            device.startAddress = 0x90410000;
+            return device.do_download(transferSize, firmwareFile, true, true);
+        }, true));
 
         // Check if WebUSB is available
         if (typeof navigator.usb !== 'undefined') {
